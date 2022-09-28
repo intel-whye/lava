@@ -27,9 +27,9 @@ class ChannelFactory {
       case RPCCHANNEL:
         break;
       case DDSCHANNEL:
-        break;
+        // break;
       default:
-        return GetShmemChannel(size, nbytes, src_name, dst_name);
+        return GetShmemChannel(channel_type, size, nbytes, src_name, dst_name);
     }
     return NULL;
   }

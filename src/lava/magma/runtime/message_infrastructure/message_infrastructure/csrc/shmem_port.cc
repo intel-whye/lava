@@ -124,7 +124,7 @@ ShmemRecvQueue::~ShmemRecvQueue() {
 }
 
 ShmemSendPort::ShmemSendPort(const std::string &name,
-                SharedMemoryPtr shm,
+                SharedCommunicatorPtr shm,
                 const size_t &size,
                 const size_t &nbytes) : AbstractSendPort(name, size, nbytes), shm_(shm), done_(false)
 {}
@@ -159,7 +159,7 @@ int ShmemSendPort::AckCallback() {
 }
 
 ShmemRecvPort::ShmemRecvPort(const std::string &name,
-                SharedMemoryPtr shm,
+                SharedCommunicatorPtr shm,
                 const size_t &size,
                 const size_t &nbytes): AbstractRecvPort(name, size, nbytes), shm_(shm), done_(false)
 {
