@@ -3,8 +3,6 @@ import unittest
 from message_infrastructure import (
     ChannelBackend,
     Channel,
-    SendPort,
-    RecvPort,
     ActorStatus
 )
 from lava.magma.core.decorator import implements
@@ -19,8 +17,8 @@ def create_channel(name: str):
     return Channel(ChannelBackend.SHMEMCHANNEL,
                    8,
                    4,
-                   name+"src",
-                   name+"dst")
+                   name + "src",
+                   name + "dst")
 
 
 class MockActorInterface:
