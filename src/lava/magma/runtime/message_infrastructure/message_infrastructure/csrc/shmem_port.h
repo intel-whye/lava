@@ -77,6 +77,7 @@ class ShmemRecvPort final : public AbstractRecvPort {
   void Join();
   MetaDataPtr Peek();
   void QueueRecv();
+  char *NoQueueRecv();
 
  private:
   SharedCommunicatorPtr shm_ = nullptr;

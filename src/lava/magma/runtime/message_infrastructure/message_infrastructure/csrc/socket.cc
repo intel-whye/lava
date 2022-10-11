@@ -34,16 +34,24 @@ void SharedSocket::Store(HandleFn store_fn) {
   
   long long buffer[(size_+1)/8];
   store_fn((void*)buffer);
-  int val;
-  sem_wait(ack_);
+  char temp;
+  // sem_wait(ack_);
+  LAVA_LOG_ERR("prewrite data.\n");
   size_t length = write(socket_[0], (char *)buffer, size_);
-  sem_post(req_);
+  LAVA_LOG_ERR("postwrite data.\n");
+  // sem_post(req_);
   if (length == -1){
     LAVA_LOG_ERR("Write socket failed.\n");
     exit(-1);
   } else if (length != size_){
     LAVA_LOG_ERR("Write socket error, expected size: %zd, got size: %zd", size_, length);
     exit(-1);
+  }
+  LAVA_LOG_ERR("preread ack.\n");
+  length = read(socket_[0], &temp, 1);
+  LAVA_LOG_ERR("postread ack.\n");
+  if (length != 1 || temp != 'a'){
+
   }
 //   LAVA_LOG_ERR("Write socket size: %zd.\n", length);
 //   for(int i=0;i<(size_+1)/8;i++){
@@ -55,17 +63,20 @@ bool SharedSocket::Load(HandleFn consume_fn) {
   long long buffer[(size_+1)/8];
   bool ret = false;
   int val;
+  char temp = 'a';
   size_t length = 0;
-  if (!sem_trywait(req_))
-  {
+  // if (!sem_trywait(req_))
+  // {
+      LAVA_LOG_ERR("preread data.\n");
       length = read(socket_[1], (char *)buffer, size_);
+      LAVA_LOG_ERR("postread data.\n");
     //   consume_fn(MemMap());
       ret = true;
-  }
-  sem_getvalue(ack_, &val);
-  if (val == 0) {
-    sem_post(ack_);
-  }
+  // }
+  // sem_getvalue(ack_, &val);
+  // if (val == 0) {
+  //   sem_post(ack_);
+  // }
   if (!ret){
     return ret;
   }
@@ -83,6 +94,12 @@ bool SharedSocket::Load(HandleFn consume_fn) {
 //   for(int i=0;i<(size_+1)/8;i++){
 //     LAVA_LOG_ERR("Read Socket Buffer: %lld\n", buffer[i]);
 //   }
+  LAVA_LOG_ERR("prewrite ack.\n");
+  length = write(socket_[1], &temp, 1);
+  LAVA_LOG_ERR("postwrite ack.\n");
+  if (length != 1){
+
+  }
   return ret;
 }
 

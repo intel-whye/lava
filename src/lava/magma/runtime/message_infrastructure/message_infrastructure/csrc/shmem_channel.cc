@@ -14,11 +14,14 @@ ShmemChannel::ShmemChannel(const ChannelType &channel_type,
                            const size_t &size,
                            const size_t &nbytes) {
   unsigned long shmem_size = nbytes + sizeof(MetaData);
-
+  size_t items_size = size;
   switch (channel_type) {
     case RPCCHANNEL:
       break;
     case DDSCHANNEL:
+      break;
+    case SOCKETCHANNEL:
+      items_size = 0;
       shm_ = GetSharedSktManager().AllocChannelSharedSocket<SharedSocket>(shmem_size);
       break;
     default:
@@ -26,8 +29,8 @@ ShmemChannel::ShmemChannel(const ChannelType &channel_type,
   }
   // shm_ = GetSharedMemManager().AllocChannelSharedMemory<SharedMemory>(shmem_size);
 
-  send_port_ = std::make_shared<ShmemSendPort>(src_name, shm_, size, shmem_size);
-  recv_port_ = std::make_shared<ShmemRecvPort>(dst_name, shm_, size, shmem_size);
+  send_port_ = std::make_shared<ShmemSendPort>(src_name, shm_, items_size, shmem_size);
+  recv_port_ = std::make_shared<ShmemRecvPort>(dst_name, shm_, items_size, shmem_size);
 }
 
 AbstractSendPortPtr ShmemChannel::GetSendPort() {
