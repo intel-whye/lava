@@ -56,6 +56,7 @@ void SharedMemory::Store(HandleFn store_fn) {
 bool SharedMemory::Load(HandleFn consume_fn) {
   bool ret = false;
   if (!sem_trywait(req_)) {
+    LAVA_DEBUG(LOG_SMMP, "shm load post sem_trywait get in\n");
     consume_fn(data_);
     sem_post(ack_);
     ret = true;
@@ -136,7 +137,7 @@ void SharedMemManager::DeleteAllSharedMemory() {
   LAVA_DEBUG(LOG_SMMP, "Delete: Number of shm to free: %zd.\n",
              shm_fd_strs_.size());
   LAVA_DEBUG(LOG_SMMP, "Delete: Number of sem to free: %zd.\n",
-             sem_strs_.size());
+             sem_d_strs_.size());
   for (auto const& it : shm_fd_strs_) {
     LAVA_DEBUG(LOG_SMMP, "Shm fd and name close: %s %d\n",
                it.second.c_str(), it.first);
@@ -149,8 +150,8 @@ void SharedMemManager::DeleteAllSharedMemory() {
   // }
   for (auto const& it : sem_d_strs_) {
     LAVA_DEBUG(LOG_SMMP, "Sem close and unlink: %s\n", it.second.c_str());
-    LAVA_ASSERT_INT(sem_close(it.first), 0);
     LAVA_ASSERT_INT(sem_unlink(it.second.c_str()), 0);
+    LAVA_ASSERT_INT(sem_close(it.first), 0);
   }
   // sem_strs_.clear();
   sem_d_strs_.clear();

@@ -137,7 +137,7 @@ class SharedMemManager {
   }
   std::map<int, std::string> shm_fd_strs_;
   std::map<sem_t*, std::string> sem_d_strs_;
-  std::set<std::string> sem_strs_;
+  // std::set<std::string> sem_strs_;
   static SharedMemManager smm_;
   std::string shm_str_ = "shm";
 };

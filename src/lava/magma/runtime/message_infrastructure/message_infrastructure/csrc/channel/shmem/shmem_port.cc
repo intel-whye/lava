@@ -90,6 +90,7 @@ void ShmemRecvPort::QueueRecv() {
       helper::Sleep();
     }
   }
+  LAVA_LOG(LOG_SMMP, "recv queue done\n");
 }
 
 bool ShmemRecvPort::Probe() {
@@ -101,23 +102,18 @@ MetaDataPtr ShmemRecvPort::Recv() {
 }
 
 void ShmemRecvPort::Join() {
-  if (!done_) {
-    LAVA_LOG(LOG_SMMP, "pre shmem recv port join.\n");
-    LAVA_LOG(LOG_SMMP, "this->id: %d\n", std::this_thread::get_id());
-    LAVA_LOG(LOG_SMMP, "this->id: %d\n", recv_queue_thread_->get_id());
-    done_ = true;
+  if (!done_.load()) {
+    LAVA_DEBUG(LOG_SMMP, "pre shmem recv port join.\n");
+    LAVA_DEBUG(LOG_SMMP, "this->id: %d\n", std::this_thread::get_id());
+    LAVA_DEBUG(LOG_SMMP, "this->id: %d\n", recv_queue_thread_->get_id());
+    done_.store(true);
     if (recv_queue_thread_->joinable()) {
-      LAVA_LOG(LOG_SMMP, "pre shmem recv queue join.\n");
-      try{
-        recv_queue_thread_->join();
-      }
-      catch(std::exception&e){
-        LAVA_LOG_ERR("join error\n");
-      }
-      LAVA_LOG(LOG_SMMP, "post shmem recv queue join.\n");
+      LAVA_DEBUG(LOG_SMMP, "pre shmem recv queue join.\n");
+      recv_queue_thread_->join();
+      LAVA_DEBUG(LOG_SMMP, "post shmem recv queue join.\n");
     }
     recv_queue_->Stop();
-    LAVA_LOG(LOG_SMMP, "post shmem recv port join.\n");
+    LAVA_DEBUG(LOG_SMMP, "post shmem recv port join.\n");
   }
 }
 

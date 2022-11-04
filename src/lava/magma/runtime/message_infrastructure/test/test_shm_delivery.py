@@ -453,7 +453,7 @@ class TestShmDelivery(unittest.TestCase):
         predata = prepare_data()
         queue_size = 2
         nbytes = np.prod(predata.shape) * predata.dtype.itemsize
-        _ = Channel(
+        c = Channel(
             ChannelBackend.SHMEMCHANNEL,
             queue_size,
             nbytes,
@@ -462,15 +462,19 @@ class TestShmDelivery(unittest.TestCase):
         while loop > 0:
             loop = loop - 1
             print(loop)
+            c.dst_port.start()
+            c.dst_port.join()
             if loop == 10000:
                 input()
             mp.stop(True)
-            _ = Channel(
+            c = Channel(
                 ChannelBackend.SHMEMCHANNEL,
                 queue_size,
                 nbytes,
                 "mp_to_a1" + str(loop),
                 "mp_to_a1" + str(loop))
+        c.dst_port.start()
+        c.dst_port.join()
         mp.stop(True)
 
 
