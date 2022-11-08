@@ -14,6 +14,7 @@
 #include <condition_variable>  // NOLINT
 #include <cassert>
 #include <cstring>
+#include <sys/mman.h>
 
 namespace message_infrastructure {
 
@@ -73,7 +74,22 @@ void ShmemRecvPort::QueueRecv() {
       ret = shm_->Load([this](void* data){
         MetaDataPtr metadata_res = std::make_shared<MetaData>();
         std::memcpy(metadata_res.get(), data, sizeof(MetaData));
-        metadata_res->mdata = malloc(this->nbytes_ - sizeof(MetaData));
+        int mem_size = (this->nbytes_ - sizeof(MetaData) + 7) & (~0x7);
+        // if (mem_size+16 <= getpagesize()/256) {
+          LAVA_LOG(LOG_SMMP, "memory allocates, size: %d\n", mem_size+16);
+          metadata_res->mdata = calloc(mem_size, 1);
+        // } else {
+        //   LAVA_LOG(LOG_SMMP, "memory maps, size: %d\n", mem_size+16);
+        //   int fd = open("/dev/zero", O_RDWR);
+        //   metadata_res->mdata = mmap(0,(16 + mem_size), PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
+        //   close(fd);
+        //   *((uint64_t*)metadata_res->mdata+1) = 16 + mem_size;
+        //   metadata_res->mdata = (char*)metadata_res->mdata + 16;
+        // }
+        if (metadata_res->mdata == NULL) {
+          LAVA_LOG_ERR("errno: %d\n", errno);
+          LAVA_ASSERT_INT(-1, 0);
+        }
         std::memcpy(metadata_res->mdata,
           reinterpret_cast<char *>(data) + sizeof(MetaData),
           this->nbytes_ - sizeof(MetaData));
@@ -100,6 +116,7 @@ void ShmemRecvPort::Join() {
     done_ = true;
     recv_queue_thread_->join();
     recv_queue_->Stop();
+    shm_->Close();
   }
 }
 

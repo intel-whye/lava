@@ -10,10 +10,14 @@
 #include <Python.h>
 #include <message_infrastructure/csrc/port_proxy.h>
 #include <message_infrastructure/csrc/core/message_infrastructure_logging.h>
+#include <sys/mman.h>
 
 namespace message_infrastructure {
 
 namespace py = pybind11;
+
+std::map<void *, uint64_t> mem_refcount_;
+std::mutex mem_refcount_lock_;
 
 void MetaDataDump(MetaDataPtr metadata) {
   int64_t *dims = metadata->dims;
@@ -72,6 +76,10 @@ void RecvPortProxy::Join() {
 }
 py::object RecvPortProxy::Peek() {
   MetaDataPtr metadata = recv_port_->Peek();
+  if (channel_type_ == SHMEMCHANNEL) {
+    LAVA_LOG(LOG_LAYER, "Shmem peeks\n");
+    return MDataToObject_(metadata, false);
+  }
   return MDataToObject_(metadata);
 }
 std::string RecvPortProxy::Name() {
@@ -133,7 +141,7 @@ MetaDataPtr SendPortProxy::MDataFromObject_(py::object* object) {
   return metadata;
 }
 
-py::object RecvPortProxy::MDataToObject_(MetaDataPtr metadata) {
+py::object RecvPortProxy::MDataToObject_(MetaDataPtr metadata, bool cleaner) {
   if (metadata == NULL)
     return py::cast(0);
 
@@ -159,7 +167,64 @@ py::object RecvPortProxy::MDataToObject_(MetaDataPtr metadata) {
   if (!array)
     return py::cast(0);
 
-  return py::reinterpret_borrow<py::object>(array);
+  mem_refcount_lock_.lock();
+  uint64_t refcount = mem_refcount_[metadata->mdata];
+  mem_refcount_lock_.unlock();
+  refcount = (refcount + 1);
+  if (cleaner) {
+    refcount = (refcount | (MEM_REF_FREE_ENABLE));
+    // LAVA_DEBUG(LOG_LAYER, "Set memory clean, memory: %p\n", metadata->mdata);
+    // capsule = PyCapsule_New(metadata->mdata, NULL,
+    //                                   [](PyObject *capsule){
+    //   void *memory = PyCapsule_GetPointer(capsule, NULL);
+    //   LAVA_DEBUG(LOG_LAYER, "PyObject cleaned, free memory: %p.\n", memory);
+    //   // free(memory);
+    // });
+  } else {
+    // capsule = PyCapsule_New(metadata->mdata, NULL,
+    //                                   [](PyObject *capsule){
+    //   LAVA_DEBUG(LOG_LAYER, "PyObject cleaned, without freeing.\n");
+    // });
+  }
+  mem_refcount_lock_.lock();
+  mem_refcount_[metadata->mdata] = refcount;
+  mem_refcount_lock_.unlock();
+  LAVA_DEBUG(LOG_LAYER, "ref add, memory: %p, refcount: %lx\n", metadata->mdata, refcount);
+  PyObject *capsule = PyCapsule_New(metadata->mdata, NULL,
+                                      [](PyObject *capsule){
+      void *memory = PyCapsule_GetPointer(capsule, NULL);
+      mem_refcount_lock_.lock();
+      uint64_t refcount = mem_refcount_[memory];
+      mem_refcount_lock_.unlock();
+      if (refcount & (~MEM_REF_FREE_ENABLE) == 0) {
+        LAVA_ASSERT_INT(-1, 0);
+      }
+      refcount = refcount - 1;
+      if (refcount == (MEM_REF_FREE_ENABLE)) {
+        LAVA_DEBUG(LOG_LAYER, "PyObject cleaned, free memory: %p, size: %lu.\n", memory, *((uint64_t*)memory - 1)&(~0x7));
+        // if ((*((uint64_t*)memory - 1) & (~(uint64_t)0x7)) <= getpagesize()/256){
+          free(memory);
+        // } else {
+        //   munmap((char*)memory-16, *((uint64_t*)memory - 1));
+        // }
+        mem_refcount_lock_.lock();
+        mem_refcount_.erase(memory);
+        mem_refcount_lock_.unlock();
+      } else if (refcount == 0) {
+        mem_refcount_lock_.lock();
+        mem_refcount_.erase(memory);
+        mem_refcount_lock_.unlock();
+        LAVA_DEBUG(LOG_LAYER, "PyObject cleaned, unfree memory: %p.\n", memory);
+      } else {
+        mem_refcount_lock_.lock();
+        mem_refcount_[memory] = refcount;
+        mem_refcount_lock_.unlock();
+        LAVA_DEBUG(LOG_LAYER, "ref sub, memory: %p, refcount: %lx\n", memory, refcount);
+      }
+    });
+  // Py_INCREF(array);
+  LAVA_ASSERT_INT(PyArray_SetBaseObject(reinterpret_cast<PyArrayObject *>(array), capsule), 0);
+  return py::reinterpret_steal<py::object>(array);
 }
 
 }  // namespace message_infrastructure

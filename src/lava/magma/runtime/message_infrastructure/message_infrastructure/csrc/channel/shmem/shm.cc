@@ -21,7 +21,7 @@ SharedMemory::SharedMemory(const size_t &mem_size, void* mmap) {
 }
 
 SharedMemory::~SharedMemory() {
-  munmap(data_, size_);
+  // munmap(data_, size_);
 }
 
 void SharedMemory::InitSemaphore() {
@@ -67,6 +67,7 @@ bool SharedMemory::TryProbe() {
 }
 
 void SharedMemory::Close() {
+  munmap(data_, size_);
   LAVA_ASSERT_INT(sem_close(req_), 0);
   LAVA_ASSERT_INT(sem_close(ack_), 0);
 }
@@ -113,6 +114,8 @@ void RwSharedMemory::Close() {
 }
 
 void SharedMemManager::DeleteAllSharedMemory() {
+  if (alloc_pid_ != getpid())
+    return;
   int result = 0;
   LAVA_DEBUG(LOG_SMMP, "Delete: Number of shm to free: %zd.\n",
              shm_fd_strs_.size());

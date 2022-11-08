@@ -12,6 +12,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
+
+#define MEM_REF_FREE_ENABLE ((uint64_t)1<<31)
 
 namespace message_infrastructure {
 
@@ -57,9 +60,10 @@ class RecvPortProxy : public PortProxy {
   size_t Size();
 
  private:
-  py::object MDataToObject_(MetaDataPtr metadata);
+  py::object MDataToObject_(MetaDataPtr metadata, bool cleaner = true);
   ChannelType channel_type_;
   AbstractRecvPortPtr recv_port_;
+  // std::map<void *, uint64_t> mem_refcount_;
 };
 
 using SendPortProxyPtr = std::shared_ptr<SendPortProxy>;
